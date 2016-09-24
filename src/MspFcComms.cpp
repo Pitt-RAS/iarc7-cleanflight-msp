@@ -11,6 +11,7 @@
 #include "MspFcComms.hpp"
 #include "CommonConf.hpp"
 #include "iarc7_msgs/UavControl.h"
+#include "iarc7_msgs/UavThrottle.h"
 #include "MspConf.hpp"
 #include "MspCommands.hpp"
 #include "serial/serial.h"
@@ -28,9 +29,64 @@ namespace FcComms
         delete fc_serial_;
     }
 
-    void MspFcComms::sendFcAngles(float pitch, float yaw, float roll)
+    // Scale the throttle to an rc value and put them in the rc values array.
+    // Send the rc values
+    void MspFcComms::sendFcThrottle(const iarc7_msgs::UavThrottle::ConstPtr& message)
     {
         // Send out the rx values using sendMessage.
+        float throttle = message->throttle * FcCommsMspConf::kMspThrottleScale;
+        translated_rc_values_[3] = static_cast<uint16_t>(throttle);
+
+        // We have no way of knowing that the send failed don't check response
+        (void)sendRc();
+    }
+
+    // Scale the angles to rc values and put them in the rc values array.
+    // Send the rc values
+    void MspFcComms::sendFcAngles(const iarc7_msgs::UavControl::ConstPtr& message)
+    {
+        // Send out the rx values using sendMessage.
+        float pitch = (message->pitch_degrees * FcCommsMspConf::kMspPitchScale) + FcCommsMspConf::kMspMidPoint;
+        float yaw   = (message->yaw_degrees * FcCommsMspConf::kMspRollScale) + FcCommsMspConf::kMspMidPoint;
+        float roll  = (message->roll_degrees * FcCommsMspConf::kMspYawScale) + FcCommsMspConf::kMspMidPoint;
+
+        #pragma GCC warning "Bounds check the floats so we can't send something to big or small"
+        translated_rc_values_[0] = static_cast<uint16_t>(pitch);
+        translated_rc_values_[1] = static_cast<uint16_t>(yaw);
+        translated_rc_values_[2] = static_cast<uint16_t>(roll);
+
+        #pragma GCC warning "Handle return"
+        (void)sendRc();
+    }
+
+    // Send the rc commands to the FC using the member array of rc values.
+    FcCommsReturns MspFcComms::sendRc()
+    {
+        MSP_RC msp_rc;
+        msp_rc.packRc(translated_rc_values_);
+        #pragma GCC warning "Handle return"
+        sendMessage<MSP_RC>(msp_rc);
+    }
+
+    FcCommsReturns MspFcComms::getBattery(float& voltage)
+    {
+        MSP_ANALOG analog;
+        #pragma GCC warning "Handle return"
+        sendMessage<MSP_ANALOG>(analog);
+        voltage = analog.getVolts();
+
+        return FcCommsReturns::kReturnOk;
+    }
+
+    FcCommsReturns MspFcComms::getStatus(uint8_t& armed, uint8_t& auto_pilot, uint8_t& failsafe)
+    {
+        // Adding the autopilot flag is probably going to require modifying the FC firmware
+        // And could be quite a bit of work.
+        #pragma GCC warning "Finish implementing auto_pilot and failsafe"
+        MSP_STATUS status;
+        sendMessage<MSP_STATUS>(status);
+        armed = static_cast<uint8_t>(status.getArmed());
+        return FcCommsReturns::kReturnOk;
     }
 
     // Disconnect from FC, should be called before destructor.
@@ -146,19 +202,6 @@ namespace FcComms
         return FcCommsReturns::kReturnOk;
     }
 
-    FcCommsReturns MspFcComms::getStatus(uint8_t& armed, uint8_t& auto_pilot, uint8_t& failsafe)
-    {
-        // Stubbed should send a message to get the flight controller status and update it.
-        return FcCommsReturns::kReturnOk;
-    }
-
-    FcCommsReturns MspFcComms::getBattery(float& voltage)
-    {
-        // Stubbed should construct message and
-        // return sendMessage<BatteryUpdate>();
-        return FcCommsReturns::kReturnOk;
-    }
-
     FcCommsReturns MspFcComms::handleComms()
     {
         // Check Connection
@@ -170,12 +213,6 @@ namespace FcComms
             return FcCommsReturns::kReturnError;
         }
 
-        // Try sending an ident request
-        MSP_IDENT ident;
-        sendMessage<MSP_IDENT>(ident);
-        char * const results = reinterpret_cast<char* const>(ident.response);
-        results[8] = '\0';
-        ROS_INFO("%s", ident.response);
         return FcCommsReturns::kReturnOk;
     }
 
@@ -280,7 +317,7 @@ namespace FcComms
                 {
                     // Data Length + header = 2
                     #pragma GCC warning "TODO remove hardcoded 2"
-                    message.response[i] = buffer[2+i];
+                    message.response[i] = buffer[1+i];
                 }
             }
         }
@@ -289,7 +326,7 @@ namespace FcComms
             ROS_WARN("Attempted to send FC message without being connected, message id: %d", message.message_id);
         }
 
-        ROS_INFO("FC_COMMS %s sent/received succesfully", message.string_name);
+        ROS_DEBUG("FC_COMMS %s sent/received succesfully", message.string_name);
         return FcCommsReturns::kReturnOk;
     }
 }

@@ -13,6 +13,7 @@
 #include "CommonConf.hpp"
 #include "iarc7_msgs/FlightControllerStatus.h"
 #include "iarc7_msgs/UavControl.h"
+#include "iarc7_msgs/UavThrottle.h"
 #include "std_msgs/Float32.h"
 
 namespace FcComms{
@@ -53,11 +54,17 @@ namespace FcComms{
         // Send FC angles
         void sendFcAngles(const iarc7_msgs::UavControl::ConstPtr& message);
 
+        // Send FC throttle
+        void sendFcThrottle(const iarc7_msgs::UavThrottle::ConstPtr& message);
         // Just use the default constructor
         T flightControlImpl_;
 
         // Subscriber for UavAngle values
         ros::Subscriber uav_angle_subscriber;
+
+        // Subscriber for UavThrottle valuess
+        ros::Subscriber uav_throttle_subscriber;
+
     };
 }
 
@@ -74,14 +81,6 @@ CommonFcComms<T>& CommonFcComms<T>::getInstance()
     return *instance;
 }
 
-// Pass a message to the impl
-template<class T>
-void CommonFcComms<T>::sendFcAngles(const iarc7_msgs::UavControl::ConstPtr& message)
-{
-    flightControlImpl_.sendFcAngles(message->pitch_degrees, message->yaw_degrees, message->roll_degrees);
-}
-
-
 // Use to connect to topics
 template<class T>
 FcCommsReturns CommonFcComms<T>::init()
@@ -90,7 +89,8 @@ FcCommsReturns CommonFcComms<T>::init()
 
     battery_publisher = nh_.advertise<std_msgs::Float32>("fc_battery", 50);
     status_publisher = nh_.advertise<iarc7_msgs::FlightControllerStatus>("fc_status", 50);
-    uav_angle_subscriber = nh_.subscribe("uav_control", 100, &CommonFcComms<T>::sendFcAngles, this);
+    uav_angle_subscriber = nh_.subscribe("uav_angles", 100, &T::sendFcAngles, &flightControlImpl_);
+    uav_throttle_subscriber = nh_.subscribe("uav_throttle", 100, &T::sendFcThrottle, &flightControlImpl_);
 
     ROS_INFO("FC Comms registered and subscribed to topics");
 
@@ -128,7 +128,9 @@ void CommonFcComms<T>::publishTopics()
     #pragma GCC warning "TODO handle failure"
     flightControlImpl_.getBattery(battery.data);
 
+    ROS_INFO("Armed: %d", fc.armed);
     status_publisher.publish(fc);
+    ROS_INFO("Battery level: %f", battery.data);
     battery_publisher.publish(battery);
 }
 
