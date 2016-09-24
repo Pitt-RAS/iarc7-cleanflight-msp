@@ -12,6 +12,7 @@
 #include <string>
 #include "CommonConf.hpp"
 #include "iarc7_msgs/UavControl.h"
+#include "iarc7_msgs/UavThrottle.h"
 #include "serial/serial.h"
 
 namespace FcComms
@@ -45,8 +46,8 @@ namespace FcComms
         }
 
         // Send the flight controller RX values
-        void sendFcAngles(float pitch, float yaw, float roll);
-        void sendFcThrottle(float throttle);
+        void sendFcAngles(const iarc7_msgs::UavControl::ConstPtr& message);
+        void sendFcThrottle(const iarc7_msgs::UavThrottle::ConstPtr& message);
 
     private:
         // Don't allow the copy constructor or assignment.

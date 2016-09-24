@@ -11,6 +11,7 @@
 #include "MspFcComms.hpp"
 #include "CommonConf.hpp"
 #include "iarc7_msgs/UavControl.h"
+#include "iarc7_msgs/UavThrottle.h"
 #include "MspConf.hpp"
 #include "MspCommands.hpp"
 #include "serial/serial.h"
@@ -30,10 +31,10 @@ namespace FcComms
 
     // Scale the throttle to an rc value and put them in the rc values array.
     // Send the rc values
-    void MspFcComms::sendFcThrottle(float throttle)
+    void MspFcComms::sendFcThrottle(const iarc7_msgs::UavThrottle::ConstPtr& message)
     {
         // Send out the rx values using sendMessage.
-        throttle = throttle * FcCommsMspConf::kMspThrottleScale;
+        float throttle = message->throttle * FcCommsMspConf::kMspThrottleScale;
         translated_rc_values_[3] = static_cast<uint16_t>(throttle);
 
         // We have no way of knowing that the send failed don't check response
@@ -42,13 +43,14 @@ namespace FcComms
 
     // Scale the angles to rc values and put them in the rc values array.
     // Send the rc values
-    void MspFcComms::sendFcAngles(float pitch, float yaw, float roll)
+    void MspFcComms::sendFcAngles(const iarc7_msgs::UavControl::ConstPtr& message)
     {
         // Send out the rx values using sendMessage.
-        pitch = (pitch * FcCommsMspConf::kMspPitchScale) + FcCommsMspConf::kMspMidPoint;
-        yaw   = (yaw * FcCommsMspConf::kMspRollScale) + FcCommsMspConf::kMspMidPoint;
-        roll  = (roll * FcCommsMspConf::kMspYawScale) + FcCommsMspConf::kMspMidPoint;
+        float pitch = (message->pitch_degrees * FcCommsMspConf::kMspPitchScale) + FcCommsMspConf::kMspMidPoint;
+        float yaw   = (message->yaw_degrees * FcCommsMspConf::kMspRollScale) + FcCommsMspConf::kMspMidPoint;
+        float roll  = (message->roll_degrees * FcCommsMspConf::kMspYawScale) + FcCommsMspConf::kMspMidPoint;
 
+        #pragma GCC warning "Bounds check the floats so we can't send something to big or small"
         translated_rc_values_[0] = static_cast<uint16_t>(pitch);
         translated_rc_values_[1] = static_cast<uint16_t>(yaw);
         translated_rc_values_[2] = static_cast<uint16_t>(roll);
