@@ -40,9 +40,17 @@ namespace FcComms
         FcCommsReturns  __attribute__((warn_unused_result))
             handleComms();
 
-        // Get the flight status of the FC.
+        // Find out if the FC is armed.
         FcCommsReturns  __attribute__((warn_unused_result))
-            getStatus(bool& armed, bool& auto_pilot, bool& failsafe);
+            isArmed(bool& armed);
+
+        // Find out if the FC is in failsafe
+        FcCommsReturns  __attribute__((warn_unused_result))
+            isFailsafe(bool& failsafe);
+
+        // Find out if the FC has enabled auto_pilot
+        FcCommsReturns  __attribute__((warn_unused_result))
+            isAutoEnabled(bool& auto_pilot);
 
         // Get the battery voltage of the FC.
         FcCommsReturns  __attribute__((warn_unused_result))

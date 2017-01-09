@@ -27,8 +27,7 @@ enum class FcCommsStatus
 
 struct CommonConf
 {
-    // In seconds.
-    static constexpr const float kFcSensorsUpdateRateHz{5};
+    static constexpr const float kFcSensorsUpdateRateHz{30};
 
     static constexpr const double kMinAllowedRoll = -0.25;
     static constexpr const double kMaxAllowedRoll = 0.25;

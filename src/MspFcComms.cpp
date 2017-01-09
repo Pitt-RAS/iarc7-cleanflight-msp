@@ -174,7 +174,7 @@ FcCommsReturns MspFcComms::getBattery(float& voltage)
     return status;
 }
 
-FcCommsReturns MspFcComms::getStatus(bool& armed, bool& auto_pilot, bool& failsafe)
+FcCommsReturns MspFcComms::isArmed(bool& armed)
 {
     // Adding the autopilot flag is probably going to require modifying the FC firmware
     // And could be quite a bit of work.
@@ -183,13 +183,7 @@ FcCommsReturns MspFcComms::getStatus(bool& armed, bool& auto_pilot, bool& failsa
 
     if (return_status == FcCommsReturns::kReturnOk) {
         armed = status.getArmed();
-
-        MSP_RC rc_channels;
-        return_status = isAutoPilotAllowed(auto_pilot);
     }
-
-    // TODO Finish implementing autopilot and failsafe
-    failsafe = false;
 
     return return_status;
 }
