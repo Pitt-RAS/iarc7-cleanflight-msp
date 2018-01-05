@@ -1,15 +1,18 @@
 # Publish the battery as read from the FC
 publish_fc_battery: false
 
+# Publish the imu messages from the FC
+publish_imu: false
+
 # Use the initial heading as the zero point for all future headings
 initial_heading_as_offset: true
 
 # Calibrate the accelerometer every time the foot switches say
 # the drone is on the ground
-calibrate_accelerometer: true
+calibrate_accelerometer: false
 
 # Timeout for determining validity of contact switch messages
 valid_contact_switch_message_delay: 0.2
 
 # Offset for timestamping orientation messages due to filter delay on the FC
-imu_orientation_timestamp_offset: -0.075
+imu_orientation_timestamp_offset: 0.0

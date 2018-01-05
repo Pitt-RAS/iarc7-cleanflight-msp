@@ -1,0 +1,21 @@
+<launch>
+    <arg name="bond_id_namespace" default="safety_bonds" />
+    <arg name="battery_topic" default="fc_battery" />
+
+    <node name="fc_comms_px4" pkg="iarc7_fc_comms" type="fc_comms_px4">
+        <rosparam command="load"
+            file="$(find iarc7_fc_comms)/params/fc_comms.yaml" />
+        <remap from="fc_battery" to="/$(arg battery_topic)" />
+    </node>
+
+    <include file="$(find mavros)/launch/px4.launch">
+        <arg name="fcu_url" default="/dev/ttyACM0:921600" />
+        <arg name="gcs_url" default="" />
+        <arg name="tgt_system" default="1" />
+        <arg name="tgt_component" default="1" />
+        <arg name="log_output" default="screen" />
+    </include>
+
+    <param name="$(arg bond_id_namespace)/fc_comms_px4/form_bond"
+        value="true" />
+</launch>

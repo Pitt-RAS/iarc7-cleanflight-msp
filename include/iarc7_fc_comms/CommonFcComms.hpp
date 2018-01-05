@@ -90,7 +90,7 @@ namespace FcComms{
         void publishFcStatus();
 
         // Send out the orientation data for the quad
-        void sendOrientation(double (&attitude)[3]);
+        void sendOrientation(double (&attitude)[3], ros::Time attitude_stamp);
 
         // Send out the accelerations from the FC
         void sendIMU(double (&accelerations)[3], double (&angular_velocities)[3]);
@@ -156,6 +156,8 @@ namespace FcComms{
 
         uint32_t current_sequenced_update = 0;
 
+        bool publish_imu_;
+
         bool fc_armed_ = false;
 
         bool fc_failsafe_ = false;
@@ -182,14 +184,16 @@ battery_publisher(),
 status_publisher(),
 imu_publisher(),
 orientation_pub_(),
-flightControlImpl_(),
+flightControlImpl_(private_nh_),
 uav_angle_subscriber(),
 contact_switch_subscriber(),
 uav_arm_service(),
 last_direction_command_message_ptr_(),
 last_contact_switch_message_ptr_(),
 valid_contact_switch_message_delay_(),
-orientation_timestamp_offset_()
+orientation_timestamp_offset_(),
+publish_imu_(ros_utils::ParamUtils::getParam<bool>(
+                            private_nh_, "publish_imu"))
 {
     if (ros_utils::ParamUtils::getParam<bool>(private_nh_,
                                               "publish_fc_battery")) {
@@ -254,11 +258,14 @@ FcCommsReturns CommonFcComms<T>::init()
         return FcCommsReturns::kReturnError;
     }
 
-    imu_publisher = nh_.advertise<sensor_msgs::Imu>(
-            "fc_imu", 50);
-    if (!imu_publisher) {
-        ROS_ERROR("CommonFcComms failed to create imu publisher");
-        return FcCommsReturns::kReturnError;
+    if(publish_imu_)
+    {
+        imu_publisher = nh_.advertise<sensor_msgs::Imu>(
+                "fc_imu", 50);
+        if (!imu_publisher) {
+            ROS_ERROR("CommonFcComms failed to create imu publisher");
+            return FcCommsReturns::kReturnError;
+        }
     }
 
     orientation_pub_ = nh_.advertise<iarc7_msgs::OrientationAnglesStamped>(
@@ -452,7 +459,8 @@ template<class T>
 void CommonFcComms<T>::updateAttitude()
 {
     double attitude[3];
-    FcCommsReturns status = flightControlImpl_.getAttitude(attitude);
+    ros::Time attitude_stamp = ros::Time::now();
+    FcCommsReturns status = flightControlImpl_.getAttitude(attitude, attitude_stamp);
 
     if (status != FcCommsReturns::kReturnOk) {
         ROS_ERROR("iarc7_fc_comms: Failed to retrieve attitude from flight controller");
@@ -482,7 +490,7 @@ void CommonFcComms<T>::updateAttitude()
                   attitude[1],
                   attitude[2]);
 
-        sendOrientation(attitude);
+        sendOrientation(attitude, attitude_stamp);
     }
 }
 
@@ -641,7 +649,11 @@ void CommonFcComms<T>::update()
             {
                 updateDirection();
                 updateAttitude();
-                updateAccelerations();
+
+                if(publish_imu_)
+                {
+                    updateAccelerations();
+                }
             }
 
             (this->*sequenced_updates[current_sequenced_update])();
@@ -674,14 +686,14 @@ void CommonFcComms<T>::publishFcStatus()
 
 // Send out the orientation date from the quad
 template<class T>
-void CommonFcComms<T>::sendOrientation(double (&attitude)[3])
+void CommonFcComms<T>::sendOrientation(double (&attitude)[3], ros::Time attitude_stamp)
 {
     iarc7_msgs::OrientationAnglesStamped orientation_msg;
 
-    orientation_msg.header.stamp = ros::Time::now() + orientation_timestamp_offset_;
+    orientation_msg.header.stamp = attitude_stamp + orientation_timestamp_offset_;
 
     orientation_msg.data.roll = attitude[0];
-    orientation_msg.data.pitch = -1 * attitude[1];
+    orientation_msg.data.pitch = attitude[1];
     orientation_msg.data.yaw = attitude[2];
 
     orientation_pub_.publish(orientation_msg);

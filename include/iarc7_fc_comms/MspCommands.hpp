@@ -192,7 +192,9 @@ namespace FcComms
 
             // Roll and pitch are in tenths of degrees, heading is in degrees
             attitude_values[0] = attitude_values[0] / 10.0 * M_PI / 180.0;
-            attitude_values[1] = attitude_values[1] / 10.0 * M_PI / 180.0;
+
+            // Invert pitch to match right handed coordinate system
+            attitude_values[1] = -1.0 * attitude_values[1] / 10.0 * M_PI / 180.0;
             attitude_values[2] = attitude_values[2] * M_PI / 180.0;
         }
     };

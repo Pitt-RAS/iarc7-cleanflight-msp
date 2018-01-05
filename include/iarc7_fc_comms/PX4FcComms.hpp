@@ -1,11 +1,11 @@
-#ifndef MSP_FC_COMMS_HPP
-#define MSP_FC_COMMS_HPP
+#ifndef PX4_FC_COMMS_HPP
+#define PX4_FC_COMMS_HPP
 
 ////////////////////////////////////////////////////////////////////////////
 //
-// Msp flight controller node.
+// PX4 flight controller node.
 //
-// Implements node behaviours specific to MSP FC
+// Implements node behaviours specific to PX4 FC
 //
 ////////////////////////////////////////////////////////////////////////////
 #include <ros/ros.h>
@@ -13,20 +13,25 @@
 
 #include "CommonConf.hpp"
 #include "MspConf.hpp"
-#include "serial/serial.h"
 
 #include "iarc7_msgs/BoolStamped.h"
 #include "iarc7_msgs/Float64Stamped.h"
 #include "iarc7_msgs/OrientationThrottleStamped.h"
 
+#include <mavros_msgs/AttitudeTarget.h>
+#include <mavros_msgs/CommandBool.h>
+#include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/State.h>
+#include <sensor_msgs/Imu.h>
+
 namespace FcComms
 {
     // Inherit from CommonFcComms to get the stuff any Fc is required to do.
-    class MspFcComms
+    class PX4FcComms
     {
     public:
-        MspFcComms(ros::NodeHandle&);
-        ~MspFcComms() = default;
+        PX4FcComms(ros::NodeHandle& nh);
+        ~PX4FcComms() = default;
 
         // Used to find and connect to the serial port
         FcCommsReturns __attribute__((warn_unused_result))
@@ -62,7 +67,7 @@ namespace FcComms
 
         // Get the attitude of the FC in the order roll pitch yaw
         FcCommsReturns  __attribute__((warn_unused_result))
-            getAttitude(double (&attitude)[3], ros::Time&);
+            getAttitude(double (&attitude)[3], ros::Time& stamp);
 
         // Getter for current connection status
         inline const FcCommsStatus& getConnectionStatus() const
@@ -77,9 +82,6 @@ namespace FcComms
         FcCommsReturns  __attribute__((warn_unused_result))
             setArm(bool arm);
 
-        FcCommsReturns  __attribute__((warn_unused_result))
-            printRawRC();
-
         // Get the acceleration in m/s^2 and the angular velocities in rad/s
         FcCommsReturns  __attribute__((warn_unused_result))
             getIMU(double (&accelerations)[3], double (&angular_velocities)[3]);
@@ -92,44 +94,42 @@ namespace FcComms
         
     private:
         // Don't allow the copy constructor or assignment.
-        MspFcComms(const MspFcComms& rhs) = delete;
-        MspFcComms& operator=(const MspFcComms& rhs) = delete;
+        PX4FcComms(const PX4FcComms& rhs) = delete;
+        PX4FcComms& operator=(const PX4FcComms& rhs) = delete;
 
-        // Find the FC from a list of serial ports using its hardware ID.
-        FcCommsReturns  __attribute__((warn_unused_result))
-            findFc(std::string& serial_port);
+        void mavrosStateCallback(const mavros_msgs::State::ConstPtr& msg);
 
-        // Connect to the serial port and identify FC.
-        FcCommsReturns  __attribute__((warn_unused_result))
-            connectFc();
+        void mavrosImuCallback(const sensor_msgs::Imu::ConstPtr& msg);
 
-        FcCommsReturns  __attribute__((warn_unused_result))
-            getRawRC(
-                uint16_t (&rc_values)[FcCommsMspConf::kMspReceivableChannels]);
+        ros::NodeHandle nh_;
 
-        // Send the rc commands to the FC using the member array of rc values.
-        FcCommsReturns  __attribute__((warn_unused_result))
-            sendRc();
+        // Subscriber for the drones state
+        ros::Subscriber mavros_state_sub_;
 
-        // Send message using the MSP protocol
-        template<typename T>
-        FcCommsReturns  __attribute__((warn_unused_result))
-            sendMessage(T& message);
+        // Subscriber for the orientation
+        ros::Subscriber mavros_imu_sub_;
 
-        // Receive response using the MSP protocol
-        FcCommsReturns  __attribute__((warn_unused_result))
-            receiveResponseAfterSend(
-                uint8_t packet_id,
-                uint8_t (&response)[FcCommsMspConf::kMspMaxDataLength]);
+        // Attitude publisher
+        ros::Publisher mavros_attitude_pub_;
 
-        // Serial object used to communicate with FC
-        std::unique_ptr<serial::Serial> fc_serial_;
+        // Mavros arming service
+        ros::ServiceClient mavros_arming_client_;
 
-        // State of communication with flight controller
-        FcCommsStatus fc_comms_status_ = FcCommsStatus::kDisconnected;
+        // Mavros arming mode service
+        ros::ServiceClient mavros_set_mode_client_;
 
-        // FC implementation specific to hold intermediate rc values
-        uint16_t translated_rc_values_[8]{0};
+        // Current fc comms state
+        FcCommsStatus fc_comms_status_;
+
+        // Current mavros state
+        mavros_msgs::State mavros_current_state_;
+
+        // Current imu message
+        sensor_msgs::Imu mavros_imu_;
+
+        // Current orientation throttle cammed
+        iarc7_msgs::OrientationThrottleStamped 
+            current_orientation_throttle_stamped_;
     };
 } // End namspace
 

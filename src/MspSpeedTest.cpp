@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
     ROS_INFO("FC_comms begin");
 
-    MspFcComms comms;
+    MspFcComms comms(nh);
 
     FcCommsReturns status = comms.connect();
 
@@ -67,7 +67,8 @@ int main(int argc, char **argv)
             }
 
             double attitude[3];
-            status = comms.getAttitude(attitude);
+            ros::Time attitude_stamp = ros::Time::now();
+            status = comms.getAttitude(attitude, attitude_stamp);
 
             if(status != FcCommsReturns::kReturnOk)
             {
